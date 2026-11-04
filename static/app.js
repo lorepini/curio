@@ -1,5 +1,6 @@
 const $ = (s, el = document) => el.querySelector(s);
-const state = { collection: "", query: "", collections: [] };
+const state = { collection: "", query: "", collections: [], view: "grid" };
+try { state.view = localStorage.getItem("curio.view") || "grid"; } catch {}
 
 async function api(path, opts = {}) {
   const res = await fetch("/api" + path, {
@@ -111,6 +112,10 @@ $("#new-collection").addEventListener("submit", async (e) => {
 
 // ---------- cards ----------
 async function loadCards() {
+  const onBoard = state.view === "board";
+  $("#board").hidden = !onBoard;
+  $("#grid").hidden = onBoard;
+  if (onBoard) return loadBoard();
   const params = new URLSearchParams();
   if (state.query) params.set("q", state.query);
   if (state.collection) params.set("collection", state.collection);
@@ -170,6 +175,8 @@ dialog.addEventListener("close", () => { $("#detail-body").innerHTML = ""; loadC
 
 async function openCard(id) {
   const c = await api("/cards/" + id);
+  const linked = new Set(c.connections.map((x) => x.card.id));
+  c.related = c.related.filter((r) => !linked.has(r.id));   // already shown under "Connected ideas"
   const main = isWeb(c) ? c.title : c.content;
   const sub = isWeb(c) ? c.content : "";
   const video = c.type === "video" && videoInfo(c.url);
@@ -205,6 +212,9 @@ async function openCard(id) {
       <button class="btn ghost" id="detail-delete">Delete</button>
       <button class="btn" id="detail-save">Save</button>
     </div>
+    ${c.connections.length ? `<div class="section-title">Connected ideas</div>
+    <div class="related">${c.connections.map((x) =>
+      `<div class="conn-wrap"><div class="conn-label">↔ ${esc(x.label || "connected")}</div>${cardHTML(x.card)}</div>`).join("")}</div>` : ""}
     <div class="section-title">Related ideas</div>
     <div class="related">${c.related.length ? c.related.map(cardHTML).join("")
       : '<p class="type-hint">No related cards yet. Save more ideas and connections will appear.</p>'}</div>`;
@@ -260,10 +270,10 @@ async function openCard(id) {
     await api("/cards/" + id, { method: "DELETE" });
     dialog.close();
   });
-  $(".related", dialog).addEventListener("click", (e) => {
+  dialog.querySelectorAll(".related").forEach((el) => el.addEventListener("click", (e) => {
     const card = e.target.closest(".card");
     if (card) openCard(card.dataset.id);
-  });
+  }));
 
   if (!dialog.open) dialog.showModal();
   dialog.scrollTop = 0;
@@ -274,4 +284,14 @@ $("#bookmarklet").href = `javascript:(()=>{const s=String(getSelection()).trim()
   `window.open('${location.origin}/capture?text='+encodeURIComponent(s)+'&url='+encodeURIComponent(location.href)` +
   `+'&title='+encodeURIComponent(document.title),'curio','width=520,height=560')})()`;
 
-loadCollections().then(loadCards);
+// ---------- grid / board toggle ----------
+function setView(view) {
+  state.view = view;
+  try { localStorage.setItem("curio.view", view); } catch {}
+  document.querySelectorAll(".view-toggle button").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
+  loadCards();
+}
+document.querySelectorAll(".view-toggle button").forEach((b) =>
+  b.addEventListener("click", () => setView(b.dataset.view)));
+
+loadCollections().then(() => setView(state.view));

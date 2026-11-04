@@ -27,6 +27,10 @@
   <main>
     <header class="topbar">
       <input id="search" type="search" placeholder="Search your ideas…" autocomplete="off">
+      <div class="view-toggle" role="tablist">
+        <button data-view="grid" class="on">▦ Grid</button>
+        <button data-view="board">◎ Board</button>
+      </div>
     </header>
 
     <form id="capture" class="capture">
@@ -44,6 +48,25 @@
 
     <div id="heading" class="heading"></div>
     <div id="grid" class="grid"></div>
+
+    <section id="board" class="board" hidden>
+      <div class="board-toolbar">
+        <label><input type="checkbox" id="show-suggestions" checked> Show suggested connections</label>
+        <span class="board-hint">Drag cards to arrange · drag a card's <b>●</b> onto another to connect · scroll to zoom · drag the background to move</span>
+        <span class="zoom">
+          <button class="btn ghost small" id="zoom-out" title="Zoom out">−</button>
+          <button class="btn ghost small" id="zoom-in" title="Zoom in">+</button>
+          <button class="btn ghost small" id="zoom-fit" title="Show everything">Fit</button>
+        </span>
+      </div>
+      <div id="board-viewport" class="board-viewport">
+        <div id="board-world" class="board-world">
+          <svg id="board-lines" class="board-lines"></svg>
+          <div id="board-cards"></div>
+          <div id="board-labels"></div>
+        </div>
+      </div>
+    </section>
     <p id="empty" class="empty" hidden>Nothing here yet. Save your first idea above.</p>
   </main>
 
@@ -52,6 +75,13 @@
     <div id="detail-body"></div>
   </dialog>
 
+  <div id="link-menu" class="link-menu" hidden>
+    <input id="link-label" placeholder="Label, e.g. inspired by" autocomplete="off">
+    <button class="btn small" id="link-save">Save</button>
+    <button class="btn ghost small" id="link-delete">Remove</button>
+  </div>
+
   <script src="app.js"></script>
+  <script src="board.js"></script>
 </body>
 </html>

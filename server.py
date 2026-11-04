@@ -67,6 +67,23 @@ def init_db():
             collection_id INTEGER REFERENCES collections(id) ON DELETE CASCADE,
             PRIMARY KEY (card_id, collection_id)
         );
+        -- whiteboard: where each card sits on each board (collection_id 0 = main board)
+        CREATE TABLE IF NOT EXISTS board_positions (
+            collection_id INTEGER NOT NULL,
+            card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+            x REAL NOT NULL,
+            y REAL NOT NULL,
+            PRIMARY KEY (collection_id, card_id)
+        );
+        -- connections you draw between ideas (stored with from_id < to_id)
+        CREATE TABLE IF NOT EXISTS connections (
+            id INTEGER PRIMARY KEY,
+            from_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+            to_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+            label TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            UNIQUE (from_id, to_id)
+        );
         """)
         # migrate older databases
         cols = [r[1] for r in conn.execute("PRAGMA table_info(cards)")]
@@ -145,6 +162,31 @@ def cosine(a, b):
     if len(a) > len(b):
         a, b = b, a
     return sum(x * b.get(t, 0) for t, x in a.items())
+
+
+def suggest_connections(conn, ids, existing, per_card=2, threshold=0.12):
+    """Pairs of cards on a board that look related but aren't connected yet."""
+    vecs, _ = build_index(conn.execute("SELECT * FROM cards").fetchall())
+    taken = {(c["from_id"], c["to_id"]) for c in existing}
+    pairs = {}
+    for a in ids:
+        scored = sorted(((cosine(vecs[a], vecs[b]), b) for b in ids if b != a), reverse=True)
+        for score, b in scored[:per_card]:
+            key = (min(a, b), max(a, b))
+            if score >= threshold and key not in taken:
+                pairs[key] = round(score, 3)
+    return [{"from_id": a, "to_id": b, "score": sc}
+            for (a, b), sc in sorted(pairs.items(), key=lambda x: -x[1])[:60]]
+
+
+def card_connections(conn, card_id):
+    rows = conn.execute("SELECT * FROM connections WHERE from_id = ? OR to_id = ?", (card_id, card_id)).fetchall()
+    out = []
+    for r in rows:
+        other = r["to_id"] if r["from_id"] == card_id else r["from_id"]
+        card = conn.execute("SELECT * FROM cards WHERE id = ?", (other,)).fetchone()
+        out.append({"id": r["id"], "label": r["label"], "card": card_dict(conn, card)})
+    return out
 
 
 def related_cards(conn, card_id, limit=6):
@@ -306,7 +348,8 @@ class Handler(SimpleHTTPRequestHandler):
             if not row:
                 raise KeyError
             if method == "GET":
-                return self.send_json(dict(card_dict(conn, row), related=related_cards(conn, cid)))
+                return self.send_json(dict(card_dict(conn, row), related=related_cards(conn, cid),
+                                           connections=card_connections(conn, cid)))
             if method == "PUT":
                 b = self.read_json()
                 fields = {k: b[k] for k in ("content", "title", "url", "note") if k in b}
@@ -346,7 +389,59 @@ class Handler(SimpleHTTPRequestHandler):
 
         if len(p) == 2 and p[0] == "collections" and method == "DELETE":
             conn.execute("DELETE FROM collections WHERE id = ?", (int(p[1]),))
+            conn.execute("DELETE FROM board_positions WHERE collection_id = ?", (int(p[1]),))
             return self.send_json({"ok": True})
+
+        # /api/board?collection=ID  (no collection = main board)
+        if p == ["board"] and method == "GET":
+            coll = int(qs.get("collection", ["0"])[0] or 0)
+            if coll:
+                rows = conn.execute("""SELECT c.* FROM cards c JOIN card_collections cc ON cc.card_id = c.id
+                                       WHERE cc.collection_id = ? ORDER BY c.created_at, c.id""", (coll,)).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM cards ORDER BY created_at, id").fetchall()
+            pos = {r["card_id"]: (r["x"], r["y"]) for r in
+                   conn.execute("SELECT * FROM board_positions WHERE collection_id = ?", (coll,))}
+            cards = [dict(r, x=pos.get(r["id"], (None, None))[0], y=pos.get(r["id"], (None, None))[1]) for r in rows]
+            ids = [r["id"] for r in rows]
+            idset = set(ids)
+            links = [dict(r) for r in conn.execute("SELECT * FROM connections")
+                     if r["from_id"] in idset and r["to_id"] in idset]
+            return self.send_json({"cards": cards, "connections": links,
+                                   "suggestions": suggest_connections(conn, ids, links)})
+
+        if p == ["board"] and method == "PUT":
+            b = self.read_json()
+            coll = int(b.get("collection") or 0)
+            for item in b.get("positions", []):
+                conn.execute("INSERT OR REPLACE INTO board_positions VALUES (?,?,?,?)",
+                             (coll, int(item["card_id"]), float(item["x"]), float(item["y"])))
+            return self.send_json({"ok": True})
+
+        # /api/connections
+        if p == ["connections"] and method == "POST":
+            b = self.read_json()
+            a, z = sorted((int(b["from_id"]), int(b["to_id"])))
+            if a == z:
+                raise ValueError("a card can't connect to itself")
+            for cid in (a, z):
+                if not conn.execute("SELECT 1 FROM cards WHERE id = ?", (cid,)).fetchone():
+                    raise KeyError
+            conn.execute("INSERT OR IGNORE INTO connections (from_id, to_id, label, created_at) VALUES (?,?,?,?)",
+                         (a, z, b.get("label", ""), now()))
+            row = conn.execute("SELECT * FROM connections WHERE from_id = ? AND to_id = ?", (a, z)).fetchone()
+            return self.send_json(dict(row), 201)
+
+        if len(p) == 2 and p[0] == "connections":
+            lid = int(p[1])
+            if not conn.execute("SELECT 1 FROM connections WHERE id = ?", (lid,)).fetchone():
+                raise KeyError
+            if method == "PUT":
+                conn.execute("UPDATE connections SET label = ? WHERE id = ?", (self.read_json().get("label", ""), lid))
+                return self.send_json(dict(conn.execute("SELECT * FROM connections WHERE id = ?", (lid,)).fetchone()))
+            if method == "DELETE":
+                conn.execute("DELETE FROM connections WHERE id = ?", (lid,))
+                return self.send_json({"ok": True})
 
         raise KeyError
 

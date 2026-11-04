@@ -12,6 +12,7 @@ Everything runs on your own computer. Your saved cards stay private in a local f
 - **Why notes**: write why you saved something; it shows on the card
 - **Collections**: group cards by topic; a card can be in many collections
 - **Related ideas**: open a card to see similar cards from your library
+- **Whiteboard**: switch to *Board* view to arrange cards freely, draw labeled connections between ideas, and accept suggested connections (one board per collection)
 - **Search** across text, titles, notes and links (English + Spanish)
 - **Save from any website** with a bookmarklet button
 
