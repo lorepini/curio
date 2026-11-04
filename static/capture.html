@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Save to Curio</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { display: block; padding: 20px; }
+    textarea, input, select { width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+    textarea { font-family: var(--serif); font-size: 16px; min-height: 140px; }
+    .row { display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+  <h1 class="logo" style="margin:0 0 14px">Save to Curio</h1>
+  <form id="f">
+    <textarea name="content" placeholder="Selected text (leave empty to save the page as a link)"></textarea>
+    <input name="title" placeholder="Title">
+    <input name="url" placeholder="URL">
+    <textarea name="note" placeholder="Why are you saving this? (optional)" style="min-height:60px;font-family:var(--sans);font-size:14px"></textarea>
+    <select name="collection"><option value="">No collection</option></select>
+    <div class="row"><span id="msg" class="type-hint"></span><button type="submit">Save card</button></div>
+  </form>
+  <script>
+    const f = document.getElementById("f");
+    const p = new URLSearchParams(location.search);
+    f.content.value = p.get("text") || "";
+    f.title.value = p.get("title") || "";
+    f.url.value = p.get("url") || "";
+    fetch("/api/collections").then(r => r.json()).then(cs => cs.forEach(c => f.collection.add(new Option(c.name, c.id))));
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const content = f.content.value.trim();
+      const body = {
+        type: content ? "quote" : "link",
+        content, title: f.title.value.trim(), url: f.url.value.trim(), note: f.note.value.trim(),
+        collections: f.collection.value ? [Number(f.collection.value)] : [],
+      };
+      const res = await fetch("/api/cards", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      document.getElementById("msg").textContent = res.ok ? "Saved ✓" : "Error saving";
+      if (res.ok) setTimeout(() => window.close(), 700);
+    });
+  </script>
+</body>
+</html>

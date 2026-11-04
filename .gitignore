@@ -1,0 +1,14 @@
+# Personal data — each person has their own library
+curio.db
+*.db-journal
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

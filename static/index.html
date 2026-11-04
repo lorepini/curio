@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Curio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <h1 class="logo">Curio</h1>
+    <nav>
+      <a href="#" class="nav-item active" data-collection="">All cards</a>
+      <div class="nav-label">Collections</div>
+      <div id="collection-list"></div>
+      <form id="new-collection" class="new-collection">
+        <input name="name" placeholder="+ New collection" autocomplete="off">
+      </form>
+    </nav>
+    <div class="bookmarklet-box">
+      <div class="nav-label">Capture from any page</div>
+      <a id="bookmarklet" class="bookmarklet" title="Drag me to your bookmarks bar">+ Save to Curio</a>
+      <p>Drag to your bookmarks bar. Select text on any page, then click it.</p>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <input id="search" type="search" placeholder="Search your ideas…" autocomplete="off">
+    </header>
+
+    <form id="capture" class="capture">
+      <textarea name="content" rows="2" placeholder="Paste a quote, a link, or write a thought…"></textarea>
+      <div class="capture-extra" hidden>
+        <input name="title" placeholder="Source / title (optional)">
+        <input name="url" placeholder="Source URL (optional)">
+        <input name="note" placeholder="Why are you saving this? (optional)">
+        <div class="capture-actions">
+          <span class="type-hint"></span>
+          <button type="submit">Save card</button>
+        </div>
+      </div>
+    </form>
+
+    <div id="heading" class="heading"></div>
+    <div id="grid" class="grid"></div>
+    <p id="empty" class="empty" hidden>Nothing here yet. Save your first idea above.</p>
+  </main>
+
+  <dialog id="detail" class="detail">
+    <button class="close" aria-label="Close">×</button>
+    <div id="detail-body"></div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
