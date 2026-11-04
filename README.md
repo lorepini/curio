@@ -25,8 +25,8 @@ You only need **Python 3** (version 3.8 or newer). No other installs.
 - **Linux**: usually already installed
 
 **2. Download Curio**
-- Easiest: on the GitHub page, click the green **Code** button → **Download ZIP**, then unzip it
-- Or with git: `git clone <this repo's URL>`
+- Easiest: on https://github.com/lorepini/curio, click the green **Code** button → **Download ZIP**, then unzip it
+- Or with git: `git clone https://github.com/lorepini/curio.git`
 
 **3. Run it**: open a terminal in the Curio folder and type:
 ```bash
